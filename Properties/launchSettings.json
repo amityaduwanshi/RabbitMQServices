@@ -1,0 +1,15 @@
+{
+  "profiles": {
+    "Services": {
+      "commandName": "Project",
+      "commandLineArgs": "-console true",
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Development"
+      },
+      "dotnetRunMessages": true
+    },
+    "Docker": {
+      "commandName": "Docker"
+    }
+  }
+}
