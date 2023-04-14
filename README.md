@@ -1,7 +1,7 @@
 # Rabbit MQ Services
 This is the window service project template where you can directly download and start consuming Rabbit MQ Service.
 ## Features
-1.	Read custom appsettings.json
+1.	.Net Core Window Service and read custom appsettings.json
 2.	Configure nlog for logging
 3.	Dynamic settings for RabbitMQ configuration
 4.	Rabbit MQ support Ack, Nack, Reject, Cancel
