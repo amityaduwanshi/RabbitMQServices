@@ -9,7 +9,7 @@ namespace Services.Processors
 {
     public static class FileSystemProcessor
     {
-        private readonly static Dictionary<string, (string Path, long WaitIntervalInMilliSeconds, string Extenstions, string QueueManagers, string Publisher)> _fileSystemManager = new();
+        private readonly static Dictionary<string, IDictionary<string,string>> _fileSystemManager = new();
         private readonly static List<System.Timers.Timer> _timers = new();
         private static IConfiguration _configuration;
         #region Public Method
@@ -25,12 +25,8 @@ namespace Services.Processors
             {
                 var fileSystemManagerDic = ConfigHelper.GetDictionary(fileSystemManager);
                 if (fileSystemManagerDic == null) continue;
-                var path = fileSystemManagerDic["Path"];
-                var waitIntervalInMilliSeconds = Convert.ToInt64(fileSystemManagerDic["WaitIntervalInMilliSeconds"]);
-                var extenstions = fileSystemManagerDic["Extenstions"];
-                var queueManagers = fileSystemManagerDic["QueueManagers"];
-                var publisher = fileSystemManagerDic["Publisher"];
-                _fileSystemManager.Add(fileSystemManager.Key, (path, waitIntervalInMilliSeconds, extenstions, queueManagers, publisher));
+               
+                _fileSystemManager.Add(fileSystemManager.Key, fileSystemManagerDic);
             }
         }
 
@@ -38,9 +34,13 @@ namespace Services.Processors
         {
             foreach (var fileSystemManager in _fileSystemManager)
             {
-                if (Directory.Exists(fileSystemManager.Value.Path))
+                var fileSystemManagerDic = fileSystemManager.Value;
+
+                var path = fileSystemManagerDic["Path"];
+                var waitIntervalInMilliSeconds = Convert.ToInt64(fileSystemManagerDic["WaitIntervalInMilliSeconds"]);
+                if (Directory.Exists(path))
                 {
-                    var timer = new System.Timers.Timer(fileSystemManager.Value.WaitIntervalInMilliSeconds);
+                    var timer = new System.Timers.Timer(waitIntervalInMilliSeconds);
                     timer.Elapsed += (obj, eventArgs) =>
                     {
                         Processor(obj, eventArgs, fileSystemManager.Value);
@@ -58,21 +58,32 @@ namespace Services.Processors
         #endregion
 
         #region Private Method
-        private static void Processor(object? obj, ElapsedEventArgs eventArgs, (string Path, long WaitIntervalInMilliSeconds, string Extenstions, string QueueManagers, string Publisher) fileSystem)
+        private static void Processor(object? obj, ElapsedEventArgs eventArgs, IDictionary<string,string> fileSystemManagerDic)
         {
-            var files = Directory.EnumerateFiles(fileSystem.Path);
+            var path = fileSystemManagerDic["Path"];
+            var extenstions = fileSystemManagerDic["Extenstions"];
+            var queueManagers = fileSystemManagerDic["QueueManagers"];
+            var publisherName = fileSystemManagerDic["Publisher"];
+            var completedProcessPath = fileSystemManagerDic["CompletedProcessPath"];
+            var files = Directory.EnumerateFiles(path);
             foreach (var file in files)
             {
                 var fileInfo = new FileInfo(file);
-                if (string.IsNullOrEmpty(fileSystem.Extenstions) && !fileSystem.Extenstions.Split(";").Contains(fileInfo.Extension))
+                if (string.IsNullOrEmpty(extenstions) && !extenstions.Split(";").Contains(fileInfo.Extension))
                 {
                     continue;
                 }
-                var publisher = GetRMQPublisher(fileSystem.QueueManagers,fileSystem.Publisher);
+                var publisher = GetRMQPublisher(queueManagers,publisherName);
                 if(publisher!= null)
                 {
                     publisher.BindQueue();
                     publisher.Publish(File.ReadAllBytes(file));
+                    if (Directory.Exists(completedProcessPath))
+                    {
+                        Directory.CreateDirectory(completedProcessPath);
+                    }
+
+                    File.Move(file, $"{completedProcessPath}\\{fileInfo.Name}",true);
                 }
 
             }
