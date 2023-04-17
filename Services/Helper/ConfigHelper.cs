@@ -25,7 +25,8 @@ namespace Services.Helper
         {
             return new ConfigurationBuilder()
                     .SetBasePath(args["configPath"])
-                    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                    .AddJsonFile("appsettings.json", optional: false)
+                    .AddEnvironmentVariables()
                     .Build();
         }
         public static void SetNLogConfiguration(string configPath)
@@ -37,7 +38,11 @@ namespace Services.Helper
         {
             if (args.Length == 0)
             {
-                return new Dictionary<string, string>();
+                var arguments = new Dictionary<string, string>
+                {
+                    { "configPath", System.IO.Directory.GetCurrentDirectory() }
+                };
+                return arguments;
             }
             var cmdlineArguments = Enumerable.Range(0, args.Length / 2).ToDictionary(i => args[2 * i].Replace("-", ""), i => args[2 * i + 1]);
 

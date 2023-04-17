@@ -7,8 +7,8 @@ namespace Services
 {
     public static class RabbitMQProcessor
     {
-        private static IList<Consumer> _consumerManagers;
-        private static IList<Publisher> _publisherManagers;
+        private static readonly IList<Consumer> _consumerManagers;
+        private static readonly IList<Publisher> _publisherManagers;
 
         static RabbitMQProcessor()
         {
@@ -59,7 +59,10 @@ namespace Services
                 Console.WriteLine("Wite Data to Publish:");
                 var data = Console.ReadLine();
                 var byteData = Encoding.UTF8.GetBytes(data);
-                publisher.Publish(byteData);
+                publisher.Publish(byteData, basicAckCallback: (o, e) =>
+                {
+                    Console.WriteLine(e);
+                });                
 
             }
         }
