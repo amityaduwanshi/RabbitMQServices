@@ -1,11 +1,14 @@
+using System.Runtime.CompilerServices;
+using Services.Processors;
+
 namespace Services
 {
     public class Worker : BackgroundService
     {
         private readonly ILogger<Worker> _logger;
         private readonly IConfiguration _configuration;
-        
-        public Worker(ILogger<Worker> logger,IConfiguration configuration)
+
+        public Worker(ILogger<Worker> logger, IConfiguration configuration)
         {
             _logger = logger;
             _configuration = configuration;
@@ -15,13 +18,33 @@ namespace Services
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                RabbitMQProcessor.Bootstrap(_configuration);
-                RabbitMQProcessor.StartConsumer();
-                RabbitMQProcessor.StartPublisher();
+                var rmqConfiguraiton = _configuration.GetSection("Configuration:Queues:RabbitMQ");
+                if (rmqConfiguraiton != null)
+                {
+                    BootStrapRabbitMQAsync(rmqConfiguraiton);
+                }
+                BootStrapFileSystemMonitorAsync();
                 await Task.Delay(1000000, stoppingToken);
             }
         }
 
-            
+        private async void BootStrapRabbitMQAsync(IConfigurationSection configuration)
+        {
+            await Task.Run(() =>
+            {
+                RabbitMQProcessor.Bootstrap(configuration);
+                RabbitMQProcessor.StartConsumer();
+            });
+        }
+
+        private async void BootStrapFileSystemMonitorAsync()
+        {
+            await Task.Run(() =>
+            {
+                FileSystemProcessor.Bootstrap(_configuration);
+                FileSystemProcessor.ActivateMonitor();
+            });
+        }
+
     }
 }

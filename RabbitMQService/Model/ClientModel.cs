@@ -15,7 +15,7 @@ namespace RabbitMQService.Model
         public string ClientProvidedName { get; set; } = string.Empty;
         public bool AutomaticRecoveryEnabled { get; set; }
         public bool TopologyRecoveryEnabled { get; set; }
-
         public QueueModel Queue { get; set; } = new();
-    }
+        public ClientSSL Ssl { get; set; } = new();
+    }    
 }

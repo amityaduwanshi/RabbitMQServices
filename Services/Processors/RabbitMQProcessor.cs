@@ -3,40 +3,43 @@ using RabbitMQService.Model;
 using Services.Helper;
 using System.Text;
 
-namespace Services
+namespace Services.Processors
 {
     public static class RabbitMQProcessor
     {
         private static readonly IList<Consumer> _consumerManagers;
         private static readonly IList<Publisher> _publisherManagers;
 
+        #region ctor
         static RabbitMQProcessor()
         {
             _consumerManagers = new List<Consumer>();
             _publisherManagers = new List<Publisher>();
         }
+        #endregion
 
-        public static void Bootstrap(IConfiguration configuration)
+        #region Public Method
+        /// <summary>
+        /// Configure Consumer and Publisher with it's respective configuration
+        /// </summary>
+        /// <param name="configuration"></param>
+        public static void Bootstrap(IConfigurationSection configuration)
         {
-            var queueManagers = configuration.GetSection("Configuration:Queues:RabbitMQ:QueueManagers");
-            var consumers = configuration.GetSection("Configuration:Queues:RabbitMQ:Consumers");
-            var publishers = configuration.GetSection("Configuration:Queues:RabbitMQ:Publishers");
+            var queueManagers = configuration.GetSection("QueueManagers");
+            var consumers = configuration.GetSection("Consumers");
+            var publishers = configuration.GetSection("Publishers");
 
             foreach (var consumer in consumers.GetChildren())
             {
                 var consumerDic = ConfigHelper.GetDictionary(consumer);
                 if (consumerDic == null) continue;
                 SetConsumer(consumerDic, queueManagers);
-            }
-
-            foreach (var publisher in publishers.GetChildren())
-            {
-                var publisherDic = ConfigHelper.GetDictionary(publisher);
-                if (publisherDic == null) continue;
-                SetPublisher(publisherDic, queueManagers);
-            }
+            }         
         }
 
+        /// <summary>
+        /// Activate Consumers
+        /// </summary>
         public static void StartConsumer()
         {
             foreach (Consumer consumer in _consumerManagers)
@@ -51,23 +54,7 @@ namespace Services
             }
         }
 
-        public static void StartPublisher()
-        {
-            foreach (Publisher publisher in _publisherManagers)
-            {
-                publisher.BindQueue();
-                Console.WriteLine("Wite Data to Publish:");
-                var data = Console.ReadLine();
-                var byteData = Encoding.UTF8.GetBytes(data);
-                publisher.Publish(byteData, basicAckCallback: (o, e) =>
-                {
-                    Console.WriteLine(e);
-                });                
-
-            }
-        }
-
-        private static ClientModel GetQueueManager(IDictionary<string, string> queueManager, string queueName, string exchangeKey, string routingKey)
+        public static ClientModel GetQueueManager(IDictionary<string, string> queueManager, string queueName, string exchangeKey, string routingKey)
         {
             return new ClientModel
             {
@@ -81,10 +68,41 @@ namespace Services
                     QueueName = queueName,
                     ExchangeName = exchangeKey,
                     RoutingKey = routingKey
+                },
+                Ssl = new ClientSSL()
+                {
+                    Enabled = queueManager["SslEnabled"] != null ? Convert.ToBoolean(queueManager["SslEnabled"]) : false,
+                    ServerName = queueManager["ServerName"],
+                    CertPath = queueManager["CertPath"],
+                    CertPassphrase = queueManager["CertPassphrase"]
                 }
             };
 
         }
+
+        public static Publisher? GetPublisher(IDictionary<string, string> publisherDic, IConfigurationSection queueManagers)
+        {
+            Publisher? publisher = null;
+            var rmqcPublisher = new PublisherModel
+            {
+                ConfirmPublish = Convert.ToBoolean(publisherDic["ConfirmPublish"]),
+                Mandatory = Convert.ToBoolean(publisherDic["Mandatory"])
+            };
+
+            string queueManagerName = publisherDic["QueueManager"];
+            var queueManager = ConfigHelper.GetDictionary(queueManagers.GetSection(queueManagerName));
+            if (queueManager != null)
+            {
+                var clientModel = GetQueueManager(queueManager, publisherDic["QueueName"], publisherDic["ExchangeName"], publisherDic["RoutingKey"]);
+                publisher = new Publisher(clientModel, rmqcPublisher);
+            }
+
+            return publisher;
+        }
+        #endregion
+
+        #region Private Method
+
         private static void SetConsumer(IDictionary<string, string> consumerDic, IConfigurationSection queueManagers)
         {
             var rmqcConsumer = new ConsumerModel
@@ -104,22 +122,15 @@ namespace Services
             }
 
         }
-
         private static void SetPublisher(IDictionary<string, string> publisherDic, IConfigurationSection queueManagers)
         {
-            var rmqcPublisher = new PublisherModel
+            var publisher = GetPublisher(publisherDic, queueManagers);
+            if (publisher != null)
             {
-                ConfirmPublish = Convert.ToBoolean(publisherDic["ConfirmPublish"]),
-                Mandatory = Convert.ToBoolean(publisherDic["Mandatory"])
-            };
-
-            string queueManagerName = publisherDic["QueueManager"];
-            var queueManager = ConfigHelper.GetDictionary(queueManagers.GetSection(queueManagerName));
-            if (queueManager != null)
-            {
-                var clientModel = GetQueueManager(queueManager, publisherDic["QueueName"], publisherDic["ExchangeName"], publisherDic["RoutingKey"]);
-                _publisherManagers.Add(new Publisher(clientModel, rmqcPublisher));
+                _publisherManagers.Add(publisher);
             }
+           
         }
+        #endregion
     }
 }

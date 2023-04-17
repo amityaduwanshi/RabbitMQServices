@@ -42,6 +42,11 @@ namespace RabbitMQService
 
             Channel.BasicPublish(_rabbitMQClientModel.Queue.ExchangeName, _rabbitMQClientModel.Queue.RoutingKey, mandatory ?? _rabbitMQPublisherModel.Mandatory, basicProperties, payload);
         }
+
+        public IBasicProperties CreateBasicProperties()
+        {
+            return Channel.CreateBasicProperties();
+        }
         #endregion
 
     }

@@ -1,6 +1,7 @@
 ﻿using RabbitMQ.Client;
 using RabbitMQ.Client.Exceptions;
 using RabbitMQService.Model;
+using System.Security.Authentication;
 
 namespace RabbitMQService
 {
@@ -74,6 +75,15 @@ namespace RabbitMQService
             }
             connectionFactory.AutomaticRecoveryEnabled = _rabbitMQClientModel.AutomaticRecoveryEnabled;
             connectionFactory.TopologyRecoveryEnabled = _rabbitMQClientModel.TopologyRecoveryEnabled;
+            if (_rabbitMQClientModel.Ssl.Enabled)
+            {
+                connectionFactory.AuthMechanisms = new IAuthMechanismFactory[] { new ExternalMechanismFactory() };
+                connectionFactory.Ssl.Enabled = true;
+                connectionFactory.Ssl.ServerName = _rabbitMQClientModel.Ssl.ServerName;
+                connectionFactory.Ssl.CertPath = _rabbitMQClientModel.Ssl.CertPath;
+                connectionFactory.Ssl.CertPassphrase = _rabbitMQClientModel.Ssl.CertPassphrase;
+                connectionFactory.Ssl.Version = SslProtocols.Tls12;
+            }
             return connectionFactory;
         }
         #endregion
